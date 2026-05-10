@@ -146,3 +146,5 @@ process.on("SIGTERM", gracefulShutdown);
 
 // ===================== Start DB Connection =====================
 connectDB();
+
+export default app;
