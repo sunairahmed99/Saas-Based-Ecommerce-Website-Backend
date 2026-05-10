@@ -53,19 +53,12 @@ const CreateSeller = async (req, res) => {
             }
         }
 
-        // SEND EMAIL
-        try {
-            await sendEmail(
-                email,
-                "Seller Verification Code",
-                `Your verification code is ${code}. Please do NOT share it with anyone.`
-            );
-        } catch (error) {
-            return res.status(400).json({
-                status: "fail",
-                message: "Email sending failed. Try again later."
-            });
-        }
+        // Send email in background (non-blocking)
+        sendEmail(
+            email,
+            "Seller Verification Code",
+            `Your verification code is ${code}. Please do NOT share it with anyone.`
+        ).catch(err => console.error("Seller Reg Email Error:", err));
 
         const seller = await Seller.create({
             name,
@@ -203,18 +196,12 @@ const loginSeller = async (req, res) => {
         // Generate verification code for login
         const code = Math.floor(100000 + Math.random() * 900000);
 
-        try {
-            sendEmail(
-                email,
-                "Login Verification Code",
-                `Your login verification code is: ${code}. Please use this code to complete your login.`
-            );
-        } catch (emailErr) {
-            return res.status(400).json({
-                status: "fail",
-                message: "Failed to send verification email. Please try again."
-            });
-        }
+        // Send email in background (non-blocking)
+        sendEmail(
+            email,
+            "Login Verification Code",
+            `Your login verification code is: ${code}. Please use this code to complete your login.`
+        ).catch(err => console.error("Seller Login Email Error:", err));
 
         // Save verification code temporarily
         seller.loginCode = code;
@@ -286,23 +273,16 @@ const sellerForgotPassword = async (req, res) => {
         const code = Math.floor(100000 + Math.random() * 900000);
         const expiry = Date.now() + 5 * 60 * 1000;
 
-        try {
-            await sendEmail(
-                email,
-                "Seller Forgot Password Code",
-                `Your reset code is ${code}. Expiry time: 5 minutes.`
-            );
+        // Send email in background (non-blocking)
+        sendEmail(
+            email,
+            "Seller Forgot Password Code",
+            `Your reset code is ${code}. Expiry time: 5 minutes.`
+        ).catch(err => console.error("Seller Forgot Pass Email Error:", err));
 
-            seller.forgotpasscode = code;
-            seller.forgotpassexp = expiry;
-            await seller.save();
-
-        } catch (error) {
-            return res.status(400).json({
-                status: "fail",
-                message: "Email sending failed"
-            });
-        }
+        seller.forgotpasscode = code;
+        seller.forgotpassexp = expiry;
+        await seller.save();
 
         return res.status(200).json({
             status: "success",
