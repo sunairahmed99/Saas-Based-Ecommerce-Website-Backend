@@ -126,27 +126,40 @@ const getApprovedFlashDeals = async (req, res) => {
   }
 };
 
-// Home: Get only approved flash deals (all sellers, max 3 per seller)
+// Home: Get only approved flash deals (optimized)
 const getHomeFlashDeals = async (req, res) => {
   try {
-    const sellers = await Seller.find({});
-    const result = [];
-    for (const seller of sellers) {
-      const deals = await FlashDeal.find({ sellerId: seller._id, status: "approved" })
-        .limit(3)
-        .populate({
-          path: "productId",
-          populate: [
-            { path: "catid", select: "name cname" },
-            { path: "subcatid", select: "name scname" }
-          ]
-        })
+    // 1. Fetch all approved flash deals in ONE query
+    const allApprovedDeals = await FlashDeal.find({ status: "approved" })
+      .populate("sellerId")
+      .populate({
+        path: "productId",
+        populate: [
+          { path: "catid", select: "name cname" },
+          { path: "subcatid", select: "name scname" }
+        ]
+      })
+      .lean();
 
-        .lean();
-      if (deals.length > 0) {
-        result.push({ seller, deals });
+    // 2. Group them by seller in memory (JS)
+    const groupedMap = new Map();
+    
+    allApprovedDeals.forEach(deal => {
+      const sellerId = deal.sellerId?._id?.toString() || "unknown";
+      if (!groupedMap.has(sellerId)) {
+        groupedMap.set(sellerId, {
+          seller: deal.sellerId,
+          deals: []
+        });
       }
-    }
+      // Max 3 deals per seller as per requirement
+      if (groupedMap.get(sellerId).deals.length < 3) {
+        groupedMap.get(sellerId).deals.push(deal);
+      }
+    });
+
+    const result = Array.from(groupedMap.values());
+    
     return res.status(200).json({ success: true, message: "Home flash deals", data: result });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Internal server error", error: error.message });

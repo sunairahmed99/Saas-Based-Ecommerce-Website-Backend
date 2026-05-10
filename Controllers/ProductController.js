@@ -1087,6 +1087,20 @@ const getFeaturedProducts = async (req, res) => {
   }
 };
 
+const getLatestProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ pstatus: "active" })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate("sellerid", "name")
+      .populate("catid", "name Image")
+      .populate("subcatid", "name Image");
+    res.status(200).json({ success: true, data: products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+  }
+};
+
 export {
   createProduct,
   updateProduct,
@@ -1104,5 +1118,6 @@ export {
   updateAllProductRatingsAdmin,
   fixNegativeStockAdmin,
   toggleFeaturedStatus,
-  getFeaturedProducts
+  getFeaturedProducts,
+  getLatestProducts
 }
