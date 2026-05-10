@@ -1,4 +1,4 @@
-﻿import Seller from "../Models/SellerSchema.js";
+import Seller from "../Models/SellerSchema.js";
 import Order from "../Models/OrderSchema.js";
 import bcrypt from "bcrypt";
 import { sendEmail } from "../Utils/Nodemailer.js";
@@ -443,81 +443,52 @@ const changeSellerPassword = async (req, res) => {
 const getTopPerformingSellers = async (req, res) => {
     try {
         // Aggregate order data to calculate total items sold by each seller
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        // Aggregate order data (limited to last 30 days for speed)
         const sellerSales = await Order.aggregate([
-            // Match only completed/delivered orders
             {
                 $match: {
-                    status: { $in: ["delivered", "confirmed", "picked_up", "out_for_delivery"] }
+                    status: { $in: ["delivered", "confirmed", "picked_up", "out_for_delivery"] },
+                    createdAt: { $gte: thirtyDaysAgo }
                 }
             },
-            // Unwind items array to get individual items
             {
                 $unwind: "$items"
             },
-            // Group by sellerId and sum the quantities
             {
                 $group: {
                     _id: "$items.sellerId",
-                    totalItemsSold: { $sum: "$items.quantity" },
-                    totalOrders: { $sum: 1 },
-                    totalRevenue: { $sum: "$items.total" }
+                    totalItemsSold: { $sum: "$items.quantity" }
                 }
             },
-            // Sort by total items sold in descending order
             {
                 $sort: { totalItemsSold: -1 }
+            },
+            {
+                $limit: 20 // Only need top 20 for ranking
             }
         ]);
 
-        // Get ALL active sellers
-        const allActiveSellers = await Seller.find({
-            active: true
-        }).select('name shopName image active createdAt').sort({ createdAt: -1 });
+        // Get top active sellers
+        const allActiveSellers = await Seller.find({ active: true })
+            .select('name shopName image active createdAt')
+            .limit(20) // Limit to 20 sellers total for home page
+            .lean();
 
-        // Create a map of sellers with sales data
         const sellersWithSalesMap = new Map();
         sellerSales.forEach(sale => {
-            sellersWithSalesMap.set(sale._id.toString(), {
-                totalItemsSold: sale.totalItemsSold,
-                totalOrders: sale.totalOrders,
-                totalRevenue: sale.totalRevenue
-            });
+            if (sale._id) sellersWithSalesMap.set(sale._id.toString(), sale.totalItemsSold);
         });
 
-        // Combine all sellers: first those with sales (sorted by sales), then those without sales
-        const topSellers = [];
-        const sellersWithoutSales = [];
-
-        allActiveSellers.forEach(seller => {
-            const salesData = sellersWithSalesMap.get(seller._id.toString());
-            if (salesData) {
-                // Seller has sales - add to top sellers list with sales data
-                topSellers.push({
-                    ...seller.toObject(),
-                    totalItemsSold: salesData.totalItemsSold,
-                    totalOrders: salesData.totalOrders,
-                    totalRevenue: salesData.totalRevenue
-                });
-            } else {
-                // Seller has no sales - add to separate list
-                sellersWithoutSales.push({
-                    ...seller.toObject(),
-                    totalItemsSold: 0,
-                    totalOrders: 0,
-                    totalRevenue: 0
-                });
-            }
-        });
-
-        // Sort sellers with sales by totalItemsSold (descending)
-        topSellers.sort((a, b) => b.totalItemsSold - a.totalItemsSold);
-
-        // Combine: sellers with sales first, then sellers without sales
-        const allSellers = [...topSellers, ...sellersWithoutSales];
+        const allSellers = allActiveSellers.map(seller => ({
+            ...seller,
+            totalItemsSold: sellersWithSalesMap.get(seller._id.toString()) || 0
+        })).sort((a, b) => b.totalItemsSold - a.totalItemsSold);
 
         return res.status(200).json({
             status: "success",
-            message: "All sellers with performance data fetched successfully",
             data: allSellers
         });
 

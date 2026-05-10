@@ -16,6 +16,10 @@ const categorySchema = mongoose.Schema({
     timestamps: true
 })
 
+// Performance Indexes
+categorySchema.index({ clicks: -1 });
+categorySchema.index({ name: 1 });
+
 const Category = mongoose.model('Category',categorySchema)
 
 export default Category;

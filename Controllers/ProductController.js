@@ -632,57 +632,42 @@ const getProductAndIncrementViews = async (req, res) => {
       }
     }
 
-    let product;
-    try {
-      if (shouldIncrement) {
-        product = await Product.findByIdAndUpdate(
-          id,
-          { $inc: { views: 1 } },
-          { new: true }
-        )
-          .populate("sellerid", "name")
-          .populate("catid", "name Image")
-          .populate("subcatid", "name Image");
-      } else {
-        product = await Product.findById(id)
-          .populate("sellerid", "name")
-          .populate("catid", "name Image")
-          .populate("subcatid", "name Image");
-      }
-    } catch (dbError) {
-      console.error("Database error in getProductAndIncrementViews:", dbError);
-      return res.status(500).json({
-        success: false,
-        message: "Database error occurred",
-        error: dbError.message,
-      });
-    }
+    // 1. Fetch product IMMEDIATELY
+    const product = await Product.findById(id)
+      .populate("sellerid", "name")
+      .populate("catid", "name Image")
+      .populate("subcatid", "name Image")
+      .lean();
 
     if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found." });
+      return res.status(404).json({ success: false, message: "Product not found." });
     }
 
-    // Log recently viewed entry only once
-    if (shouldIncrement) {
-      try {
-        if (
-          rawUserId &&
-          typeof rawUserId === "string" &&
-          rawUserId.length === 24
-        ) {
-          await RecentlyViewedProduct.create({ userId: rawUserId, productId: id });
-        } else if (deviceId) {
-          await RecentlyViewedProduct.create({ deviceId, productId: id });
-        }
-      } catch (recentlyViewedError) {
-        // Log the error but don't fail the entire request
-
-      }
-    }
-
+    // 2. Return product to user right away
     res.status(200).json({ success: true, data: product });
+
+    // 3. Background tasks (view increment & history)
+    (async () => {
+      try {
+        let shouldIncrement = true;
+        if (rawUserId && typeof rawUserId === "string" && rawUserId.length === 24) {
+          const existing = await RecentlyViewedProduct.findOne({ userId: rawUserId, productId: id }).lean();
+          if (existing) shouldIncrement = false;
+        } else if (deviceId) {
+          const existing = await RecentlyViewedProduct.findOne({ deviceId, productId: id }).lean();
+          if (existing) shouldIncrement = false;
+        }
+
+        if (shouldIncrement) {
+          await Product.findByIdAndUpdate(id, { $inc: { views: 1 } });
+          if (rawUserId && typeof rawUserId === "string" && rawUserId.length === 24) {
+            await RecentlyViewedProduct.create({ userId: rawUserId, productId: id });
+          } else if (deviceId) {
+            await RecentlyViewedProduct.create({ deviceId, productId: id });
+          }
+        }
+      } catch (bgError) {}
+    })();
   } catch (error) {
     res
       .status(500)

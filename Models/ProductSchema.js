@@ -161,6 +161,14 @@ const productSchema = new mongoose.Schema(
   }
 );
 
+// Performance Indexes
+productSchema.index({ views: -1 });
+productSchema.index({ pstatus: 1 });
+productSchema.index({ catid: 1 });
+productSchema.index({ subcatid: 1 });
+productSchema.index({ isFeatured: 1 });
+productSchema.index({ createdAt: -1 });
+
 
 
 const Product = mongoose.model("Product", productSchema);

@@ -1,4 +1,4 @@
-﻿import { uploadImageToCloudinary, deleteImageFromCloudinary } from "../Middleware/Uploadmiddleware.js";
+import { uploadImageToCloudinary, deleteImageFromCloudinary } from "../Middleware/Uploadmiddleware.js";
 import Category from "../Models/CategorySchema.js";
 import Subcategory from "../Models/SubCategoriesSchema.js";
 
@@ -44,18 +44,10 @@ const createSubcategory = async (req, res) => {
 // GET ALL SUBCATEGORIES
 const getAllSubcategories = async (req, res) => {
     try {
-        // Add timeout protection for subcategory fetch
-        const subcategories = await Promise.race([
-            Subcategory.find().populate("catid", "name"),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Subcategories fetch timeout')), 8000)
-            )
-        ]);
-
+        const subcategories = await Subcategory.find().lean();
         return res.status(200).json({ status: "success", data: subcategories });
     } catch (err) {
-        // Return empty array instead of error to prevent UI breakage
-        return res.status(200).json({ status: "success", data: [] });
+        return res.status(500).json({ status: "fail", message: "Error fetching subcategories" });
     }
 };
 
