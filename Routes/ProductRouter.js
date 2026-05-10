@@ -1,5 +1,5 @@
 import express from 'express';
-import { createProduct, getAllProducts, getSellerProducts, getProductAndIncrementViews, getTrendingProducts, getForYouProducts, updateProductStatus, deleteProduct, getProductsByCategory, getProductsBySubcategory, getProductsBySeller, searchProducts, updateAllProductRatingsAdmin, fixNegativeStockAdmin, toggleFeaturedStatus, getFeaturedProducts, getLatestProducts } from '../Controllers/ProductController.js';
+import { createProduct, getAllProducts, getSellerProducts, getProductAndIncrementViews, getTrendingProducts, getForYouProducts, updateProductStatus, deleteProduct, getProductsByCategory, getProductsBySubcategory, getProductsBySeller, searchProducts, updateAllProductRatingsAdmin, fixNegativeStockAdmin, toggleFeaturedStatus, getFeaturedProducts, getLatestProducts, getRelatedProducts } from '../Controllers/ProductController.js';
 import { uploadMultipleImages } from '../Middleware/Uploadmultiplemiddleware.js';
 import { verifyAdmin, verifySellerOrAdmin } from '../Middleware/VerifyUser.js';
 
@@ -10,6 +10,7 @@ const ProductRouter = express.Router();
 
 ProductRouter.get('/featured', getFeaturedProducts);
 ProductRouter.get('/latest', getLatestProducts);
+ProductRouter.get('/related', getRelatedProducts);
 ProductRouter.post('/create',uploadMultipleImages,createProduct)
 ProductRouter.get('/getall',getAllProducts)
 ProductRouter.get('/getsellerproduct',getSellerProducts)

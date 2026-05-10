@@ -1086,6 +1086,24 @@ const getLatestProducts = async (req, res) => {
   }
 };
 
+const getRelatedProducts = async (req, res) => {
+  try {
+    const { productId, catId } = req.query;
+    const products = await Product.find({ 
+      catid: catId, 
+      _id: { $ne: productId },
+      pstatus: "active" 
+    })
+      .limit(4)
+      .populate("sellerid", "name")
+      .populate("catid", "name Image")
+      .populate("subcatid", "name Image");
+    res.status(200).json({ success: true, data: products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+  }
+};
+
 export {
   createProduct,
   updateProduct,
@@ -1104,5 +1122,6 @@ export {
   fixNegativeStockAdmin,
   toggleFeaturedStatus,
   getFeaturedProducts,
-  getLatestProducts
+  getLatestProducts,
+  getRelatedProducts
 }
