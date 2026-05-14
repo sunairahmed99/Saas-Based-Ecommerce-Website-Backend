@@ -4,23 +4,21 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 100,
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // true for 465, false for other ports
   auth: {
     user: process.env.Gmailuser,
     pass: process.env.Gmail_password,
   },
 });
 
-
-export const sendEmail = async (to, subject,message) => {
+export const sendEmail = async (to, subject, message) => {
   const mailOptions = {
-    from: `"Ecommerce_Store`,
+    from: `"Ecommerce_Store" <${process.env.Gmailuser}>`,
     to,
     subject,
-    text:message
+    text: message,
   };
 
   try {

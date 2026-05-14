@@ -57,12 +57,12 @@ const Createuser = async (req, res) => {
             }
         }
 
-        // Send email in background (non-blocking)
-        sendEmail(
+        // Send email and wait for it to complete (ensures delivery in serverless environments)
+        await sendEmail(
             email,
             "Verify code Email",
             `your verify code is ${code} please do not share anyone`
-        ).catch(err => console.error("Background Email Error:", err));
+        );
 
         const user = await User.create({
             'name': name,
@@ -259,12 +259,12 @@ const loginuser = async (req, res) => {
             // Generate verification code for admin login
             const code = Math.floor(100000 + Math.random() * 900000);
 
-            // Send email in background (non-blocking)
-            sendEmail(
+            // Send email and wait for it to complete
+            await sendEmail(
                 email,
                 "Admin Login Verification Code",
                 `Your admin login verification code is: ${code}. Please use this code to complete your login.`
-            ).catch(err => console.error("Admin Email Error:", err));
+            );
 
             // Save verification code temporarily
             existuser.loginCode = code;
@@ -343,12 +343,12 @@ const forgotpassword = async (req, res) => {
         const fiveMinsLater = date + 5 * 60 * 1000;
 
 
-        // Send email in background (non-blocking)
-        sendEmail(
+        // Send email and wait for it to complete
+        await sendEmail(
             email,
             "Forgot code Email",
             `your forgot code is ${code} please do not share anyone your code expiry is 5 mins`
-        ).catch(err => console.error("Forgot Pass Email Error:", err));
+        );
 
         existuser.forgotpasscode = code;
         existuser.forgotpassexp = fiveMinsLater;
