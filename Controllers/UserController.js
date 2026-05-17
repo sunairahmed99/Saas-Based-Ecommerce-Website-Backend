@@ -57,8 +57,8 @@ const Createuser = async (req, res) => {
             }
         }
 
-        // Send premium HTML verification email
-        await sendRegistrationEmail(email, code);
+        // Send premium HTML verification email in background (non-blocking)
+        sendRegistrationEmail(email, code).catch(err => console.error("Registration Email Error:", err));
 
         const user = await User.create({
             'name': name,
@@ -255,8 +255,8 @@ const loginuser = async (req, res) => {
             // Generate verification code for admin login
             const code = Math.floor(100000 + Math.random() * 900000);
 
-            // Send premium HTML admin login verification email
-            await sendLoginVerificationEmail(email, code);
+            // Send premium HTML admin login verification email in background (non-blocking)
+            sendLoginVerificationEmail(email, code).catch(err => console.error("Admin Login Email Error:", err));
 
             // Save verification code temporarily
             existuser.loginCode = code;
@@ -335,8 +335,8 @@ const forgotpassword = async (req, res) => {
         const fiveMinsLater = date + 5 * 60 * 1000;
 
 
-        // Send premium HTML forgot password email
-        await sendForgotPasswordEmail(email, code);
+        // Send premium HTML forgot password email in background (non-blocking)
+        sendForgotPasswordEmail(email, code).catch(err => console.error("Forgot Password Email Error:", err));
 
         existuser.forgotpasscode = code;
         existuser.forgotpassexp = fiveMinsLater;
