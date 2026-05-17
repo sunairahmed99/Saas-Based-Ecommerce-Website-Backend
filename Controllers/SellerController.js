@@ -1,7 +1,7 @@
 import Seller from "../Models/SellerSchema.js";
 import Order from "../Models/OrderSchema.js";
 import bcrypt from "bcrypt";
-import { sendEmail } from "../Utils/Nodemailer.js";
+import { sendEmail, sendRegistrationEmail, sendLoginVerificationEmail, sendForgotPasswordEmail } from "../Utils/Nodemailer.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { uploadImageToCloudinary } from "../Middleware/Uploadmiddleware.js";
@@ -53,12 +53,9 @@ const CreateSeller = async (req, res) => {
             }
         }
 
-        // Send email in background (non-blocking)
-        sendEmail(
-            email,
-            "Seller Verification Code",
-            `Your verification code is ${code}. Please do NOT share it with anyone.`
-        ).catch(err => console.error("Seller Reg Email Error:", err));
+        // Send premium HTML verification email
+        sendRegistrationEmail(email, code)
+            .catch(err => console.error("Seller Reg Email Error:", err));
 
         const seller = await Seller.create({
             name,
@@ -196,12 +193,9 @@ const loginSeller = async (req, res) => {
         // Generate verification code for login
         const code = Math.floor(100000 + Math.random() * 900000);
 
-        // Send email in background (non-blocking)
-        sendEmail(
-            email,
-            "Login Verification Code",
-            `Your login verification code is: ${code}. Please use this code to complete your login.`
-        ).catch(err => console.error("Seller Login Email Error:", err));
+        // Send premium HTML login verification email
+        sendLoginVerificationEmail(email, code)
+            .catch(err => console.error("Seller Login Email Error:", err));
 
         // Save verification code temporarily
         seller.loginCode = code;
@@ -273,12 +267,9 @@ const sellerForgotPassword = async (req, res) => {
         const code = Math.floor(100000 + Math.random() * 900000);
         const expiry = Date.now() + 5 * 60 * 1000;
 
-        // Send email in background (non-blocking)
-        sendEmail(
-            email,
-            "Seller Forgot Password Code",
-            `Your reset code is ${code}. Expiry time: 5 minutes.`
-        ).catch(err => console.error("Seller Forgot Pass Email Error:", err));
+        // Send premium HTML forgot password email
+        sendForgotPasswordEmail(email, code)
+            .catch(err => console.error("Seller Forgot Pass Email Error:", err));
 
         seller.forgotpasscode = code;
         seller.forgotpassexp = expiry;

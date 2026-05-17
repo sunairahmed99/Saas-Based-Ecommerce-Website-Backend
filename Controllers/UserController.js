@@ -1,6 +1,6 @@
 import User from "../Models/UserSchema.js";
 import bcrypt from 'bcrypt';
-import { sendEmail } from "../Utils/Nodemailer.js";
+import { sendEmail, sendRegistrationEmail, sendLoginVerificationEmail, sendForgotPasswordEmail } from "../Utils/Nodemailer.js";
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { uploadImageToCloudinary } from "../Middleware/Uploadmiddleware.js";
@@ -57,12 +57,8 @@ const Createuser = async (req, res) => {
             }
         }
 
-        // Send email and wait for it to complete (ensures delivery in serverless environments)
-        await sendEmail(
-            email,
-            "Verify code Email",
-            `your verify code is ${code} please do not share anyone`
-        );
+        // Send premium HTML verification email
+        await sendRegistrationEmail(email, code);
 
         const user = await User.create({
             'name': name,
@@ -259,12 +255,8 @@ const loginuser = async (req, res) => {
             // Generate verification code for admin login
             const code = Math.floor(100000 + Math.random() * 900000);
 
-            // Send email and wait for it to complete
-            await sendEmail(
-                email,
-                "Admin Login Verification Code",
-                `Your admin login verification code is: ${code}. Please use this code to complete your login.`
-            );
+            // Send premium HTML admin login verification email
+            await sendLoginVerificationEmail(email, code);
 
             // Save verification code temporarily
             existuser.loginCode = code;
@@ -343,12 +335,8 @@ const forgotpassword = async (req, res) => {
         const fiveMinsLater = date + 5 * 60 * 1000;
 
 
-        // Send email and wait for it to complete
-        await sendEmail(
-            email,
-            "Forgot code Email",
-            `your forgot code is ${code} please do not share anyone your code expiry is 5 mins`
-        );
+        // Send premium HTML forgot password email
+        await sendForgotPasswordEmail(email, code);
 
         existuser.forgotpasscode = code;
         existuser.forgotpassexp = fiveMinsLater;
