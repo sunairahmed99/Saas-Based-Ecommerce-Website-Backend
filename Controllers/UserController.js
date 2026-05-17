@@ -31,10 +31,13 @@ const Createuser = async (req, res) => {
         })
 
         if (existuser) {
-            return res.status(400).json({
-                status: "fail",
-                message: "This email is already registered manually. Please login."
-            })
+            if (existuser.verifiedstatus) {
+                return res.status(400).json({
+                    status: "fail",
+                    message: "This email is already registered and verified. Please login."
+                })
+            }
+            // If exists but not verified, we will update it below
         }
 
         if (password != conformpassword) {
@@ -47,7 +50,7 @@ const Createuser = async (req, res) => {
         const hashpass = await bcrypt.hash(password, 8)
         const code = Math.floor(100000 + Math.random() * 900000);
 
-        let imageUrl = null;
+        let imageUrl = existuser ? existuser.Image : null;
         if (req.file) {
             try {
                 const uploadResult = await uploadImageToCloudinary(req.file.buffer, "users");
@@ -60,16 +63,30 @@ const Createuser = async (req, res) => {
         // Send premium HTML verification email in background (non-blocking)
         sendRegistrationEmail(email, code).catch(err => console.error("Registration Email Error:", err));
 
-        const user = await User.create({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'gender': gender,
-            'password': hashpass,
-            'Image': imageUrl,
-            'verifycode': code,
-            'authProvider': 'local'
-        })
+        let user;
+        if (existuser) {
+            // Update existing unverified user
+            existuser.name = name;
+            existuser.phone = phone;
+            existuser.gender = gender;
+            existuser.password = hashpass;
+            existuser.Image = imageUrl;
+            existuser.verifycode = code;
+            await existuser.save();
+            user = existuser;
+        } else {
+            // Create new user
+            user = await User.create({
+                'name': name,
+                'email': email,
+                'phone': phone,
+                'gender': gender,
+                'password': hashpass,
+                'Image': imageUrl,
+                'verifycode': code,
+                'authProvider': 'local'
+            })
+        }
 
         return res.status(200).json({
             status: "success",

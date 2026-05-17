@@ -23,13 +23,16 @@ const CreateSeller = async (req, res) => {
             });
         }
 
-        const existSeller = await Seller.findOne({ email: email, verifiedstatus: true });
+        const existSeller = await Seller.findOne({ email: email });
 
         if (existSeller) {
-            return res.status(400).json({
-                status: "fail",
-                message: "Seller already registered"
-            });
+            if (existSeller.verifiedstatus) {
+                return res.status(400).json({
+                    status: "fail",
+                    message: "Seller already registered and verified. Please login."
+                });
+            }
+            // If exists but not verified, update it instead of creating a new one
         }
 
         if (password !== conformpassword) {
@@ -42,7 +45,7 @@ const CreateSeller = async (req, res) => {
         const hashpass = await bcrypt.hash(password, 8);
         const code = Math.floor(100000 + Math.random() * 900000);
 
-        let imageUrl = null;
+        let imageUrl = existSeller ? existSeller.image : null;
 
         // IMAGE UPLOAD
         if (req.file) {
@@ -50,6 +53,7 @@ const CreateSeller = async (req, res) => {
                 const uploadResult = await uploadImageToCloudinary(req.file.buffer, "sellers");
                 imageUrl = uploadResult.secure_url;
             } catch (error) {
+                console.error("Cloudinary Error:", error);
             }
         }
 
@@ -57,18 +61,35 @@ const CreateSeller = async (req, res) => {
         sendRegistrationEmail(email, code)
             .catch(err => console.error("Seller Reg Email Error:", err));
 
-        const seller = await Seller.create({
-            name,
-            email,
-            phone,
-            gender,
-            password: hashpass,
-            image: imageUrl,
-            shopName,
-            shopAddress,
-            shopDescription,
-            verifycode: code
-        });
+        let seller;
+        if (existSeller) {
+            // Update existing unverified seller
+            existSeller.name = name;
+            existSeller.phone = phone;
+            existSeller.gender = gender;
+            existSeller.password = hashpass;
+            existSeller.image = imageUrl;
+            existSeller.shopName = shopName;
+            existSeller.shopAddress = shopAddress;
+            existSeller.shopDescription = shopDescription;
+            existSeller.verifycode = code;
+            await existSeller.save();
+            seller = existSeller;
+        } else {
+            // Create new seller
+            seller = await Seller.create({
+                name,
+                email,
+                phone,
+                gender,
+                password: hashpass,
+                image: imageUrl,
+                shopName,
+                shopAddress,
+                shopDescription,
+                verifycode: code
+            });
+        }
 
         return res.status(200).json({
             status: "success",
