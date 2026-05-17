@@ -16,10 +16,10 @@ const CreateSeller = async (req, res) => {
             conformpassword
         } = req.body;
 
-        if (password.length < 4) {
+        if (!password || password.length < 4) {
             return res.status(400).json({
                 status: "fail",
-                message: "Password must be greater than 4 characters"
+                message: "Password must be at least 4 characters"
             });
         }
 
@@ -76,9 +76,10 @@ const CreateSeller = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Seller Registration Error:", error);
         return res.status(500).json({
             status: "fail",
-            message: "Something went wrong"
+            message: "Something went wrong: " + error.message
         });
     }
 };
