@@ -57,9 +57,7 @@ const CreateSeller = async (req, res) => {
             }
         }
 
-        // Send premium HTML verification email
-        sendRegistrationEmail(email, code)
-            .catch(err => console.error("Seller Reg Email Error:", err));
+
 
         let seller;
         if (existSeller) {
@@ -90,6 +88,10 @@ const CreateSeller = async (req, res) => {
                 verifycode: code
             });
         }
+
+        // Send premium HTML verification email ONLY AFTER DB IS SAVED
+        sendRegistrationEmail(email, code)
+            .catch(err => console.error("Seller Reg Email Error:", err));
 
         return res.status(200).json({
             status: "success",
