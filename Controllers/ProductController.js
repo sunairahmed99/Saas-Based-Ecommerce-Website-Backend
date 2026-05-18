@@ -550,6 +550,7 @@ const getAllProducts = async (req, res) => {
   
 
    const products = await Product.find()
+  .select("-pimage2 -pimage3")
   .sort({ views: -1, createdAt: -1 })
   .populate("sellerid", "name email")
   .populate("catid", "name Image")
