@@ -607,31 +607,7 @@ const getSellerProducts = async (req, res) => {
 const getProductAndIncrementViews = async (req, res) => {
   try {
     const { id } = req.params;
-    const rawUserId =
-      (req.body && req.body.userId) || (req.headers && req.headers["user_id"]);
-    const deviceId =
-      (req.body && req.body.deviceId) || (req.headers && req.headers["device_id"]);
-
-    let shouldIncrement = true;
-
-    // Check if this user/device has already viewed this product
-    if (rawUserId && typeof rawUserId === "string" && rawUserId.length === 24) {
-      const existing = await RecentlyViewedProduct.findOne({
-        userId: rawUserId,
-        productId: id,
-      }).lean();
-      if (existing) {
-        shouldIncrement = false;
-      }
-    } else if (deviceId) {
-      const existing = await RecentlyViewedProduct.findOne({
-        deviceId,
-        productId: id,
-      }).lean();
-      if (existing) {
-        shouldIncrement = false;
-      }
-    }
+    // Background tasks will check for incrementing views and history asynchronously
 
     // 1. Fetch product IMMEDIATELY
     const product = await Product.findById(id)
@@ -647,9 +623,13 @@ const getProductAndIncrementViews = async (req, res) => {
     // 2. Return product to user right away
     res.status(200).json({ success: true, data: product });
 
-    // 3. Background tasks (view increment & history)
     (async () => {
       try {
+        const rawUserId =
+          (req.body && req.body.userId) || (req.headers && req.headers["user_id"]);
+        const deviceId =
+          (req.body && req.body.deviceId) || (req.headers && req.headers["device_id"]);
+
         let shouldIncrement = true;
         if (rawUserId && typeof rawUserId === "string" && rawUserId.length === 24) {
           const existing = await RecentlyViewedProduct.findOne({ userId: rawUserId, productId: id }).lean();
