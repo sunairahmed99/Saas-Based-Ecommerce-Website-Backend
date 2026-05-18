@@ -59,6 +59,9 @@ const CreateSeller = async (req, res) => {
 
 
 
+        // Send premium HTML verification email FIRST (like login logic)
+        await sendRegistrationEmail(email, code).catch(err => console.error("Seller Reg Email Error:", err));
+
         let seller;
         if (existSeller) {
             // Update existing unverified seller
@@ -88,10 +91,6 @@ const CreateSeller = async (req, res) => {
                 verifycode: code
             });
         }
-
-        // Send premium HTML verification email ONLY AFTER DB IS SAVED
-        sendRegistrationEmail(email, code)
-            .catch(err => console.error("Seller Reg Email Error:", err));
 
         return res.status(200).json({
             status: "success",
@@ -218,7 +217,7 @@ const loginSeller = async (req, res) => {
         const code = Math.floor(100000 + Math.random() * 900000);
 
         // Send premium HTML login verification email
-        sendLoginVerificationEmail(email, code)
+        await sendLoginVerificationEmail(email, code)
             .catch(err => console.error("Seller Login Email Error:", err));
 
         // Save verification code temporarily
@@ -292,7 +291,7 @@ const sellerForgotPassword = async (req, res) => {
         const expiry = Date.now() + 5 * 60 * 1000;
 
         // Send premium HTML forgot password email
-        sendForgotPasswordEmail(email, code)
+        await sendForgotPasswordEmail(email, code)
             .catch(err => console.error("Seller Forgot Pass Email Error:", err));
 
         seller.forgotpasscode = code;
