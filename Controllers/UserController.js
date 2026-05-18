@@ -62,6 +62,9 @@ const Createuser = async (req, res) => {
 
 
 
+        // Send premium HTML verification email FIRST (like login logic)
+        await sendRegistrationEmail(email, code).catch(err => console.error("Registration Email Error:", err));
+
         let user;
         if (existuser) {
             // Update existing unverified user
@@ -86,9 +89,6 @@ const Createuser = async (req, res) => {
                 'authProvider': 'local'
             })
         }
-
-        // Send premium HTML verification email ONLY AFTER DB IS SAVED
-        await sendRegistrationEmail(email, code).catch(err => console.error("Registration Email Error:", err));
 
         return res.status(200).json({
             status: "success",
