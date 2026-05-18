@@ -88,7 +88,7 @@ const Createuser = async (req, res) => {
         }
 
         // Send premium HTML verification email ONLY AFTER DB IS SAVED
-        sendRegistrationEmail(email, code).catch(err => console.error("Registration Email Error:", err));
+        await sendRegistrationEmail(email, code).catch(err => console.error("Registration Email Error:", err));
 
         return res.status(200).json({
             status: "success",
@@ -274,8 +274,8 @@ const loginuser = async (req, res) => {
             // Generate verification code for admin login
             const code = Math.floor(100000 + Math.random() * 900000);
 
-            // Send premium HTML admin login verification email in background (non-blocking)
-            sendLoginVerificationEmail(email, code).catch(err => console.error("Admin Login Email Error:", err));
+            // Send premium HTML admin login verification email
+            await sendLoginVerificationEmail(email, code).catch(err => console.error("Admin Login Email Error:", err));
 
             // Save verification code temporarily
             existuser.loginCode = code;
@@ -354,8 +354,8 @@ const forgotpassword = async (req, res) => {
         const fiveMinsLater = date + 5 * 60 * 1000;
 
 
-        // Send premium HTML forgot password email in background (non-blocking)
-        sendForgotPasswordEmail(email, code).catch(err => console.error("Forgot Password Email Error:", err));
+        // Send premium HTML forgot password email
+        await sendForgotPasswordEmail(email, code).catch(err => console.error("Forgot Password Email Error:", err));
 
         existuser.forgotpasscode = code;
         existuser.forgotpassexp = fiveMinsLater;
