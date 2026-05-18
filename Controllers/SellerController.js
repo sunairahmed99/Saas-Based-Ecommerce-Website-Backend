@@ -60,7 +60,15 @@ const CreateSeller = async (req, res) => {
 
 
         // Send premium HTML verification email FIRST (like login logic)
-        await sendRegistrationEmail(email, code).catch(err => console.error("Seller Reg Email Error:", err));
+        try {
+            await sendRegistrationEmail(email, code);
+        } catch (err) {
+            console.error("Seller Reg Email Error:", err);
+            return res.status(500).json({
+                status: "fail",
+                message: "Failed to send verification email. " + err.message
+            });
+        }
 
         let seller;
         if (existSeller) {
