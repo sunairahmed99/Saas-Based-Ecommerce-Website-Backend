@@ -97,24 +97,26 @@ const getFavorites = async (req, res) => {
       });
     }
 
-    // Get all favorites with populated product details
+    // Get all favorites with populated product details (optimized by only loading needed fields)
     const favorites = await Favorite.find({ userId })
       .sort({ createdAt: -1 })
       .populate({
         path: "productId",
-        populate: [
-          { path: "sellerid", select: "name email" },
-          { path: "catid", select: "name Image" },
-          { path: "subcatid", select: "name Image" }
-        ]
+        populate: {
+          path: "catid",
+          select: "name Image"
+        }
       })
       .lean();
+
+    // Filter out favorites where the product no longer exists (deleted products)
+    const validFavorites = favorites.filter(fav => fav.productId !== null);
 
     res.status(200).json({
       success: true,
       message: "Favorites fetched successfully",
-      count: favorites.length,
-      data: favorites
+      count: validFavorites.length,
+      data: validFavorites
     });
   } catch (error) {
     res.status(500).json({
