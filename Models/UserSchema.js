@@ -32,7 +32,7 @@ const UserSchema = mongoose.Schema({
     },
     role: {
         type: String,
-        default: 'admin'
+        default: 'user'
     },
     Image: {
         type: String,
