@@ -554,7 +554,8 @@ const getAllProducts = async (req, res) => {
   .sort({ views: -1, createdAt: -1 })
   .populate("sellerid", "name email")
   .populate("catid", "name Image")
-  .populate("subcatid", "name Image");
+  .populate("subcatid", "name Image")
+  .lean();
 
     res.status(200).json({
       success: true,
@@ -583,7 +584,8 @@ const getSellerProducts = async (req, res) => {
   .sort({ createdAt: -1 })
   .populate("sellerid", "name")
   .populate("catid", "name Image")
-  .populate("subcatid", "name Image");
+  .populate("subcatid", "name Image")
+  .lean();
 
 
     res.status(200).json({
@@ -769,7 +771,8 @@ const getProductsByCategory = async (req, res) => {
     .sort({ createdAt: -1 })
     .populate("sellerid", "name email")
     .populate("catid", "name Image")
-    .populate("subcatid", "name Image");
+    .populate("subcatid", "name Image")
+    .lean();
 
     res.status(200).json({
       success: true,
@@ -800,7 +803,8 @@ const getProductsBySubcategory = async (req, res) => {
     .sort({ createdAt: -1 })
     .populate("sellerid", "name email")
     .populate("catid", "name Image")
-    .populate("subcatid", "name Image");
+    .populate("subcatid", "name Image")
+    .lean();
 
     res.status(200).json({
       success: true,
@@ -831,7 +835,8 @@ const getProductsBySeller = async (req, res) => {
     .sort({ createdAt: -1 })
     .populate("sellerid", "name email shopName")
     .populate("catid", "name Image")
-    .populate("subcatid", "name Image");
+    .populate("subcatid", "name Image")
+    .lean();
 
     res.status(200).json({
       success: true,
@@ -878,7 +883,8 @@ const searchProducts = async (req, res) => {
       select: "name Image",
       match: { name: searchRegex } // Also search in category names
     })
-    .populate("subcatid", "name Image");
+    .populate("subcatid", "name Image")
+    .lean();
 
     // Filter out products where category didn't match (populate with match returns null for catid if no match)
     const filteredProducts = products.filter(product =>
