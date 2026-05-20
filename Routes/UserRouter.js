@@ -1,5 +1,5 @@
-﻿import express from 'express';
-import { Createuser,verifycode,loginuser, verifyLoginCode, verifyuserdata, forgotpassword, resetpassword, getallusers, updateProfile, changePassword, googleLogin, googleCallback, getGoogleAuthUrl, exchangeGoogleCode, updateRole} from '../Controllers/UserController.js';
+import express from 'express';
+import { Createuser,verifycode,loginuser, verifyLoginCode, verifyuserdata, forgotpassword, resetpassword, getallusers, updateProfile, changePassword, googleLogin, googleCallback, getGoogleAuthUrl, exchangeGoogleCode, updateRole, toggleUserActive} from '../Controllers/UserController.js';
 import upload from '../Middleware/Uploadmiddleware.js';
 import verifyuser, { verifyAdmin } from '../Middleware/VerifyUser.js';
 
@@ -27,7 +27,8 @@ UserRouter.patch('/editprofile', verifyuser, upload.single('image'), updateProfi
 
 UserRouter.post('/changepassword', verifyuser, changePassword);
 
-UserRouter.patch('/updaterole', verifyuser, updateRole);
+UserRouter.patch('/updaterole', verifyAdmin, updateRole);
+UserRouter.patch('/toggleactive', verifyAdmin, toggleUserActive);
 
 UserRouter.get('/userverify',verifyuser,verifyuserdata)
 

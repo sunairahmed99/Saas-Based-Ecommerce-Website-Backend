@@ -694,4 +694,43 @@ const updateRole = async (req, res) => {
     }
 };
 
-export { Createuser, verifycode, loginuser, verifyLoginCode, verifyuserdata, forgotpassword, resetpassword, getallusers, updateProfile, changePassword, googleLogin, googleCallback, getGoogleAuthUrl, exchangeGoogleCode, updateRole }
+const toggleUserActive = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const adminId = req.id;
+
+        // Check if requester is admin
+        const adminUser = await User.findById(adminId);
+        if (!adminUser || adminUser.role !== 'admin') {
+            return res.status(403).json({
+                status: "fail",
+                message: "Only admins can change user status"
+            });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                status: "fail",
+                message: "User not found"
+            });
+        }
+
+        user.active = user.active === false ? true : false;
+        await user.save();
+
+        return res.status(200).json({
+            status: "success",
+            message: `User status updated to ${user.active ? 'Active' : 'Inactive'}`,
+            data: user
+        });
+    } catch (error) {
+        console.error('Toggle user active status error:', error);
+        return res.status(500).json({
+            status: "fail",
+            message: "Failed to toggle user status"
+        });
+    }
+};
+
+export { Createuser, verifycode, loginuser, verifyLoginCode, verifyuserdata, forgotpassword, resetpassword, getallusers, updateProfile, changePassword, googleLogin, googleCallback, getGoogleAuthUrl, exchangeGoogleCode, updateRole, toggleUserActive }

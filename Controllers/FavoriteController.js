@@ -1,4 +1,4 @@
-﻿import Favorite from "../Models/FavoriteSchema.js";
+import Favorite from "../Models/FavoriteSchema.js";
 import Product from "../Models/ProductSchema.js";
 import User from "../Models/UserSchema.js";
 import mongoose from "mongoose";
@@ -107,7 +107,8 @@ const getFavorites = async (req, res) => {
           { path: "catid", select: "name Image" },
           { path: "subcatid", select: "name Image" }
         ]
-      });
+      })
+      .lean();
 
     res.status(200).json({
       success: true,

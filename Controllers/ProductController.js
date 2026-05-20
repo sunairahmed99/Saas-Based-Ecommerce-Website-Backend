@@ -5,6 +5,7 @@ import InventoryLog from "../Models/InventoryLogSchema.js";
 import InventoryAlert from "../Models/InventoryAlertSchema.js";
 import RecentlyViewedProduct from "../Models/RecentlyViewedProduct.js";
 import { updateAllProductRatings, fixNegativeStock } from "../Utils/ProductRatingService.js";
+import Category from "../Models/CategorySchema.js";
 
 const createProduct = async (req, res) => {
   try {
@@ -178,6 +179,7 @@ const createProduct = async (req, res) => {
       sku: sku ? sku.trim() : null,
       stockType: actualStockType,
       totalStock: totalStock || 0,
+      pqty: totalStock || 0,
       minStockAlert: minStockAlert || 10,
       warehouse: warehouse || null,
       psize,
@@ -450,6 +452,7 @@ const updateProduct = async (req, res) => {
         sku: sku ? sku.trim() : null,
         stockType: actualStockType,
         totalStock: totalStock || 0,
+        pqty: totalStock || 0,
         minStockAlert: minStockAlert || 10,
         warehouse: warehouse || null,
         psize,
@@ -869,35 +872,29 @@ const searchProducts = async (req, res) => {
 
     const searchRegex = new RegExp(query.trim(), 'i'); // Case-insensitive regex
 
+    // First find matching categories to support category-based filtering
+    const matchingCategories = await Category.find({ name: searchRegex }).select("_id");
+    const categoryIds = matchingCategories.map(cat => cat._id);
+
     const products = await Product.find({
       pstatus: "active",
       $or: [
         { pname: searchRegex },
-        { pdescription: searchRegex }
+        { pdescription: searchRegex },
+        { catid: { $in: categoryIds } }
       ]
     })
     .sort({ views: -1, createdAt: -1 })
     .populate("sellerid", "name email shopName")
-    .populate({
-      path: "catid",
-      select: "name Image",
-      match: { name: searchRegex } // Also search in category names
-    })
+    .populate("catid", "name Image")
     .populate("subcatid", "name Image")
     .lean();
-
-    // Filter out products where category didn't match (populate with match returns null for catid if no match)
-    const filteredProducts = products.filter(product =>
-      product.catid !== null ||
-      product.pname.match(searchRegex) ||
-      product.pdescription.match(searchRegex)
-    );
 
     res.status(200).json({
       success: true,
       message: "Search completed successfully",
-      count: filteredProducts.length,
-      data: filteredProducts,
+      count: products.length,
+      data: products,
       query: query.trim()
     });
 

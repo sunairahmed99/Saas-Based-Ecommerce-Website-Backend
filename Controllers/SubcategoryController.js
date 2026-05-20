@@ -44,7 +44,7 @@ const createSubcategory = async (req, res) => {
 // GET ALL SUBCATEGORIES
 const getAllSubcategories = async (req, res) => {
     try {
-        const subcategories = await Subcategory.find().lean();
+        const subcategories = await Subcategory.find().populate("catid", "name Image").lean();
         return res.status(200).json({ status: "success", data: subcategories });
     } catch (err) {
         return res.status(500).json({ status: "fail", message: "Error fetching subcategories" });
