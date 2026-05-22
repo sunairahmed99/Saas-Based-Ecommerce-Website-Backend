@@ -5,17 +5,23 @@ import Seller from "../Models/SellerSchema.js";
 
 dotenv.config({ quiet: true });
 
+const extractToken = (req) => {
+  let token = req.header("auth_token");
+  if (!token) {
+    const authHeader = req.header("Authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    }
+  }
+  if (token && /^Bearer\s+/i.test(token)) {
+    token = token.replace(/^Bearer\s+/i, "").trim();
+  }
+  return token || null;
+};
+
 const verifyuser = async (req, res, next) => {
   try {
-    // Check for token in either auth_token header or Authorization header
-    let token = req.header("auth_token");
-
-    if (!token) {
-      const authHeader = req.header("Authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7); // Remove "Bearer " prefix
-      }
-    }
+    const token = extractToken(req);
 
     if (!token) {
       return res.status(400).json({
@@ -71,15 +77,7 @@ const verifyuser = async (req, res, next) => {
 
 const verifyAdmin = async (req, res, next) => {
   try {
-    // First verify the user is authenticated
-    let token = req.header("auth_token");
-
-    if (!token) {
-      const authHeader = req.header("Authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7); // Remove "Bearer " prefix
-      }
-    }
+    const token = extractToken(req);
 
     if (!token) {
       return res.status(400).json({

@@ -8,6 +8,7 @@ import {
     getAdminChatRooms,
     getAdminRoomMessages,
     getMessages,
+    getAdminChatUsers,
     markAsRead,
 } from '../Controllers/ChatController.js';
 
@@ -26,6 +27,9 @@ ChatRouter.post('/image', verifyuser, upload.single('image'), uploadChatImage);
 // ─── Admin routes ──────────────────────────────────────────────────────────
 // GET  /api/chat/admin/rooms           → list all seller conversations
 ChatRouter.get('/admin/rooms', verifyAdmin, getAdminChatRooms);
+
+// GET  /api/chat/admin/users           → list customer live-chat conversations
+ChatRouter.get('/admin/users', verifyAdmin, getAdminChatUsers);
 
 // GET  /api/chat/admin/room/:sellerId  → get one seller's conversation
 ChatRouter.get('/admin/room/:sellerId', verifyAdmin, getAdminRoomMessages);

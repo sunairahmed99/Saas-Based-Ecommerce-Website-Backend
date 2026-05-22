@@ -870,19 +870,27 @@ const searchProducts = async (req, res) => {
       });
     }
 
-    const searchRegex = new RegExp(query.trim(), 'i'); // Case-insensitive regex
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const terms = query.trim().split(/\s+/).filter(Boolean);
 
-    // First find matching categories to support category-based filtering
-    const matchingCategories = await Category.find({ name: searchRegex }).select("_id");
-    const categoryIds = matchingCategories.map(cat => cat._id);
+    const orConditions = [];
+    for (const term of terms) {
+      const termRegex = new RegExp(escapeRegex(term), "i");
+      orConditions.push(
+        { pname: termRegex },
+        { pdescription: termRegex },
+        { sku: termRegex }
+      );
+      const matchingCategories = await Category.find({ name: termRegex }).select("_id");
+      const categoryIds = matchingCategories.map((cat) => cat._id);
+      if (categoryIds.length > 0) {
+        orConditions.push({ catid: { $in: categoryIds } });
+      }
+    }
 
     const products = await Product.find({
       pstatus: "active",
-      $or: [
-        { pname: searchRegex },
-        { pdescription: searchRegex },
-        { catid: { $in: categoryIds } }
-      ]
+      ...(orConditions.length > 0 ? { $or: orConditions } : {}),
     })
     .sort({ views: -1, createdAt: -1 })
     .populate("sellerid", "name email shopName")

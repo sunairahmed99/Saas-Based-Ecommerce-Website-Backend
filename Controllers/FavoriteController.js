@@ -41,22 +41,36 @@ const addToFavorites = async (req, res) => {
       });
     }
 
-    // Check if already in favorites
+    // Already favorited — return existing row (keeps UI in sync)
     const existingFavorite = await Favorite.findOne({ userId, productId });
     if (existingFavorite) {
-      return res.status(400).json({
-        success: false,
-        message: "Product already in favorites"
+      const populated = await Favorite.findById(existingFavorite._id)
+        .populate({
+          path: "productId",
+          populate: { path: "catid", select: "name Image" },
+        })
+        .lean();
+
+      return res.status(200).json({
+        success: true,
+        message: "Product already in favorites",
+        data: populated || existingFavorite,
       });
     }
 
     // Add to favorites
     const favorite = await Favorite.create({ userId, productId });
+    const populated = await Favorite.findById(favorite._id)
+      .populate({
+        path: "productId",
+        populate: { path: "catid", select: "name Image" },
+      })
+      .lean();
 
     res.status(200).json({
       success: true,
       message: "Product added to favorites successfully",
-      data: favorite
+      data: populated || favorite
     });
   } catch (error) {
     
@@ -97,26 +111,34 @@ const getFavorites = async (req, res) => {
       });
     }
 
-    // Get all favorites with populated product details (optimized by only loading needed fields)
     const favorites = await Favorite.find({ userId })
       .sort({ createdAt: -1 })
       .populate({
         path: "productId",
         populate: {
           path: "catid",
-          select: "name Image"
-        }
+          select: "name Image",
+        },
       })
       .lean();
 
-    // Filter out favorites where the product no longer exists (deleted products)
-    const validFavorites = favorites.filter(fav => fav.productId !== null);
+    const validFavorites = favorites.filter((fav) => fav.productId !== null);
+
+    // One entry per product (safety if DB had duplicates before unique index)
+    const seen = new Set();
+    const uniqueFavorites = [];
+    for (const fav of validFavorites) {
+      const pid = fav.productId?._id?.toString() || fav.productId?.toString();
+      if (!pid || seen.has(pid)) continue;
+      seen.add(pid);
+      uniqueFavorites.push(fav);
+    }
 
     res.status(200).json({
       success: true,
       message: "Favorites fetched successfully",
-      count: validFavorites.length,
-      data: validFavorites
+      count: uniqueFavorites.length,
+      data: uniqueFavorites,
     });
   } catch (error) {
     res.status(500).json({
@@ -134,16 +156,10 @@ const deleteFavorite = async (req, res) => {
     const favoriteId = req.params.id;
 
 
-    // If favoriteId is provided in params, use it directly
-    if (favoriteId) {
-      // Validate ObjectId format
-      if (!mongoose.Types.ObjectId.isValid(favoriteId)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid favorite ID format"
-        });
-      }
+    const { productId: bodyProductId } = req.body || {};
 
+    // If favoriteId is provided in params, use it directly
+    if (favoriteId && mongoose.Types.ObjectId.isValid(favoriteId)) {
       const favorite = await Favorite.findById(favoriteId);
 
       if (!favorite) {
@@ -169,8 +185,8 @@ const deleteFavorite = async (req, res) => {
       });
     }
 
-    // Fallback: delete by userId and productId (for older API compatibility)
-    const { productId } = req.body || {};
+    // Delete by userId + productId (also used when favorite _id is missing/invalid)
+    const productId = bodyProductId || req.query?.productId;
 
     if (!userId) {
       return res.status(400).json({

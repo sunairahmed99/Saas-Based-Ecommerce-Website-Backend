@@ -1,4 +1,5 @@
 import ChatMessage from '../Models/ChatSchema.js';
+import Message from '../Models/MessageSchema.js';
 import Seller from '../Models/SellerSchema.js';
 import User from '../Models/UserSchema.js';
 import { uploadImageToCloudinary } from '../Middleware/Uploadmiddleware.js';
@@ -184,13 +185,94 @@ export const getAdminRoomMessages = async (req, res) => {
     }
 };
 
-// ─── Legacy stubs (kept for backward compat) ─────────────────────────────────
+// ─── User ↔ Admin live chat (Message model, used by storefront + admin panel) ─
 export const getMessages = async (req, res) => {
-    return res.status(200).json({ success: true, data: [] });
+    try {
+        const { userId } = req.params;
+        const adminUser = await User.findOne({ role: 'admin' }).lean();
+        if (!adminUser) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        const messages = await Message.find({
+            $or: [
+                { sender: userId, receiver: adminUser._id },
+                { sender: adminUser._id, receiver: userId },
+            ],
+        })
+            .sort({ createdAt: 1 })
+            .lean();
+
+        return res.status(200).json({ success: true, data: messages });
+    } catch (error) {
+        console.error('getMessages error:', error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getAdminChatUsers = async (req, res) => {
+    try {
+        const adminUser = await User.findOne({ role: 'admin' }).lean();
+        if (!adminUser) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        const adminId = adminUser._id;
+
+        const conversations = await Message.aggregate([
+            {
+                $match: {
+                    $or: [{ sender: adminId }, { receiver: adminId }],
+                },
+            },
+            { $sort: { createdAt: -1 } },
+            {
+                $group: {
+                    _id: {
+                        $cond: [
+                            { $eq: ['$sender', adminId] },
+                            '$receiver',
+                            '$sender',
+                        ],
+                    },
+                    lastMessage: { $first: '$message' },
+                    lastMessageTime: { $first: '$createdAt' },
+                },
+            },
+            { $sort: { lastMessageTime: -1 } },
+        ]);
+
+        const userIds = conversations.map((c) => c._id).filter(Boolean);
+        const users = await User.find({ _id: { $in: userIds } })
+            .select('name email Image')
+            .lean();
+
+        const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+        const data = conversations
+            .map((conv) => {
+                const u = userMap.get(conv._id?.toString());
+                if (!u) return null;
+                return {
+                    _id: u._id,
+                    name: u.name,
+                    email: u.email,
+                    profileImage: u.Image,
+                    lastMessage: conv.lastMessage,
+                    lastMessageTime: conv.lastMessageTime,
+                };
+            })
+            .filter(Boolean);
+
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error('getAdminChatUsers error:', error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
 };
 
 export const getChatUsers = async (req, res) => {
-    return getAdminChatRooms(req, res);
+    return getAdminChatUsers(req, res);
 };
 
 export const markAsRead = async (req, res) => {
