@@ -2,6 +2,8 @@
 import mongoose from 'mongoose';
 import verifyuser from '../Middleware/VerifyUser.js';
 import OrderSchema from '../Models/OrderSchema.js';
+import Address from '../Models/AddressSchema.js';
+import User from '../Models/UserSchema.js';
 import Stripe from 'stripe';
 import { useUserCoupon } from '../Controllers/WalletController.js';
 
@@ -169,6 +171,14 @@ router.post('/card-payment', verifyuser, async (req, res) => {
     const orderData = req.body;
     const userId = req.id; // From verifyuser middleware
 
+    const customer = await User.findById(userId).select("_id");
+    if (!customer) {
+      return res.status(403).json({
+        success: false,
+        message: "Please login with a customer account to place orders.",
+      });
+    }
+
     // Validate required fields
     if (!orderData.items || !orderData.payment || !orderData.paymentIntentId) {
       return res.status(400).json({
@@ -208,11 +218,30 @@ router.post('/card-payment', verifyuser, async (req, res) => {
     }, 0);
 
 
+    let shippingAddress = null;
+    if (orderData.addressId) {
+      const addr = await Address.findOne({ _id: orderData.addressId, userId });
+      if (addr) {
+        shippingAddress = {
+          addressId: addr._id,
+          fullName: addr.fullName,
+          phone: addr.phone,
+          line1: addr.line1,
+          line2: addr.line2 || "",
+          city: addr.city,
+          state: addr.state,
+          postalCode: addr.postalCode,
+          country: addr.country,
+          label: addr.label,
+        };
+      }
+    }
+
     // Create a proper order in the database
     const orderDataToSave = {
       userId: userId,
       items: orderData.items,
-      addressId: orderData.addressId,
+      address: shippingAddress,
       subtotal: orderData.subtotal,
       discount: orderData.discount || 0,
       total: orderData.total,

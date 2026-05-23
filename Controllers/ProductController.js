@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { uploadImageToCloudinary } from "../Middleware/Uploadmultiplemiddleware.js";
 import Product from "../Models/ProductSchema.js";
 import ProductVariation from "../Models/ProductVariationSchema.js";
@@ -767,9 +768,16 @@ const getProductsByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category id",
+      });
+    }
+
     const products = await Product.find({
-      catid: categoryId,
-      pstatus: "active"
+      catid: new mongoose.Types.ObjectId(categoryId),
+      pstatus: "active",
     })
     .sort({ createdAt: -1 })
     .populate("sellerid", "name email")
@@ -799,9 +807,16 @@ const getProductsBySubcategory = async (req, res) => {
   try {
     const { subcategoryId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(subcategoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid subcategory id",
+      });
+    }
+
     const products = await Product.find({
-      subcatid: subcategoryId,
-      pstatus: "active"
+      subcatid: new mongoose.Types.ObjectId(subcategoryId),
+      pstatus: "active",
     })
     .sort({ createdAt: -1 })
     .populate("sellerid", "name email")

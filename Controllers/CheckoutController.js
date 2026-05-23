@@ -11,6 +11,7 @@ import { enqueueNotification } from "./NotificationController.js";
 import { buildDiscount } from "./CouponController.js";
 import { addPointsToWallet, useUserCoupon, validateUserCoupon, scheduleDelayedPointsAward } from "./WalletController.js";
 import UserCoupon from "../Models/UserCouponSchema.js";
+import User from "../Models/UserSchema.js";
 
 const ALLOWED_STATUSES = [
   "placed",
@@ -117,6 +118,14 @@ const createOrder = async (req, res) => {
 
     if (!userId) {
       return res.status(401).json({ status: "fail", message: "Login required" });
+    }
+
+    const customer = await User.findById(userId).select("_id");
+    if (!customer) {
+      return res.status(403).json({
+        status: "fail",
+        message: "Please login with a customer account to place orders.",
+      });
     }
 
     // Check database connection
@@ -383,8 +392,8 @@ const createOrder = async (req, res) => {
 
     const now = new Date();
 
-    // Mark coupon as used BEFORE creating the order
-    if (appliedCoupon && appliedCoupon.code) {
+    // Pre-mark only user-wallet coupons (admin/global coupons are redeemed after order save)
+    if (appliedCoupon?.code && appliedCoupon.couponType === "user") {
       try {
 
 
@@ -430,11 +439,11 @@ const createOrder = async (req, res) => {
         console.error(`💥 COUPON MARKING FAILED: ${appliedCoupon.code}`, couponError.message);
         console.error(`💥 Error stack:`, couponError.stack);
 
-        // CRITICAL: If coupon marking fails, we should NOT allow the order to proceed
-        throw new Error(`Failed to mark coupon as used: ${couponError.message}`);
+        return res.status(400).json({
+          status: "fail",
+          message: couponError.message || "Could not apply coupon to this order",
+        });
       }
-    } else {
-
     }
 
     // Calculate profit for the order (SIMPLIFIED: 10% admin, 90% seller from revenue)
@@ -714,7 +723,9 @@ const getOrders = async (req, res) => {
     const userId = req.id || req.query?.userId || req.headers["user_id"];
     const { sellerId: querySellerId } = req.query;
 
-
+    if (!userId) {
+      return res.status(401).json({ status: "fail", message: "Login required" });
+    }
 
     if (querySellerId) {
 
@@ -741,8 +752,11 @@ const getOrders = async (req, res) => {
       return res.status(200).json({ status: "success", data: orders.map(formatOrderResponse) });
     }
 
-    // Allow fetching all orders when no user filter is provided (temporary unrestricted mode).
-    const criteria = userId ? { userId } : {};
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
+
+    const criteria = { userId: userObjectId };
 
     const orders = await Order.find(criteria)
       .sort({ createdAt: -1 })
@@ -755,6 +769,7 @@ const getOrders = async (req, res) => {
 
     return res.status(200).json({ status: "success", data: formattedOrders });
   } catch (error) {
+    console.error("getOrders error:", error?.message || error);
     return res.status(500).json({ status: "fail", message: "Something went wrong" });
   }
 };
