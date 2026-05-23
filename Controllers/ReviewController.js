@@ -2,7 +2,14 @@
 import User from "../Models/UserSchema.js";
 import Order from "../Models/OrderSchema.js";
 import Product from "../Models/ProductSchema.js";
+import mongoose from "mongoose";
 import { updateRatingOnReviewChange } from "../Utils/ProductRatingService.js";
+
+const toIdString = (id) => {
+  if (!id) return null;
+  if (typeof id === "object" && id._id) return String(id._id);
+  return String(id);
+};
 
 // User can create review
 const createReview = async (req, res) => {
@@ -34,20 +41,32 @@ const createReview = async (req, res) => {
 const getAllReviews = async (_req, res) => {
   try {
     const reviews = await Review.find().sort({ createdAt: -1 }).lean();
-    // populate image from user if missing
-    const userIds = [...new Set(reviews.filter(r => r.userId).map(r => r.userId.toString()))];
-    const users = await User.find({ _id: { $in: userIds } }).select("Image image name").lean();
-    const userMap = new Map(users.map(u => [u._id.toString(), u]));
-    const withImages = reviews.map(r => {
-      if (!r.image && r.userId && userMap.has(r.userId.toString())) {
-        const u = userMap.get(r.userId.toString());
+    const userIds = [
+      ...new Set(
+        reviews
+          .map((r) => toIdString(r.userId))
+          .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+      ),
+    ];
+
+    const users =
+      userIds.length > 0
+        ? await User.find({ _id: { $in: userIds } }).select("Image image name").lean()
+        : [];
+
+    const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+    const withImages = reviews.map((r) => {
+      const uid = toIdString(r.userId);
+      if (!r.image && uid && userMap.has(uid)) {
+        const u = userMap.get(uid);
         return { ...r, image: u.Image || u.image || null, name: r.name || u.name };
       }
       return r;
     });
-    return res.status(200).json({ status: "success", data: reviews });
+    return res.status(200).json({ status: "success", data: withImages });
   } catch (err) {
-    return res.status(500).json({ status: "fail", message: "Something went wrong" });
+    console.error("Error fetching all reviews:", err);
+    return res.status(500).json({ status: "fail", message: err.message || "Something went wrong" });
   }
 };
 
@@ -256,22 +275,54 @@ const getProductReviews = async (req, res) => {
 // Admin: Get all product reviews
 const getAllProductReviews = async (req, res) => {
   try {
-    const reviews = await ProductReview.find()
-      .populate({
-        path: 'userId',
-        select: 'name Image image'
-      })
-      .populate({
-        path: 'productId',
-        select: 'pname pimage1'
-      })
-      .sort({ createdAt: -1 })
-      .lean();
+    const reviews = await ProductReview.find().sort({ createdAt: -1 }).lean();
 
-    return res.status(200).json({ status: "success", data: reviews });
+    const productIds = [
+      ...new Set(
+        reviews
+          .map((r) => toIdString(r.productId))
+          .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+      ),
+    ];
+    const userIds = [
+      ...new Set(
+        reviews
+          .map((r) => toIdString(r.userId))
+          .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+      ),
+    ];
+
+    const [products, users] = await Promise.all([
+      productIds.length > 0
+        ? Product.find({ _id: { $in: productIds } }).select("pname pimage1").lean()
+        : [],
+      userIds.length > 0
+        ? User.find({ _id: { $in: userIds } }).select("name Image image").lean()
+        : [],
+    ]);
+
+    const productMap = new Map(products.map((p) => [p._id.toString(), p]));
+    const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+    const formatted = reviews.map((review) => {
+      const pid = toIdString(review.productId);
+      const uid = toIdString(review.userId);
+      return {
+        ...review,
+        productId: pid && productMap.has(pid) ? productMap.get(pid) : review.productId,
+        userId: uid && userMap.has(uid) ? userMap.get(uid) : review.userId,
+        image:
+          review.image ||
+          (uid && userMap.has(uid)
+            ? userMap.get(uid).Image || userMap.get(uid).image
+            : null),
+      };
+    });
+
+    return res.status(200).json({ status: "success", data: formatted });
   } catch (err) {
     console.error("Error fetching all product reviews:", err);
-    return res.status(500).json({ status: "fail", message: "Something went wrong" });
+    return res.status(500).json({ status: "fail", message: err.message || "Something went wrong" });
   }
 };
 
