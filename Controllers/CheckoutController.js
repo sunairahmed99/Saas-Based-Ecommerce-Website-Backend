@@ -109,8 +109,9 @@ const validateCouponForUser = (coupon, userId, subtotal) => {
 const createOrder = async (req, res) => {
   try {
     const userId = req.id || req.body?.userId || req.headers["user_id"];
-    const { addressId, address, coupon, paymentMethod, useWallet } = req.body;
+    const { addressId, address, coupon, paymentMethod, useWallet, items: clientItems } = req.body;
     const couponCode = coupon?.code;
+    const useClientCart = Array.isArray(clientItems) && clientItems.length > 0;
 
 
 
@@ -144,7 +145,17 @@ const createOrder = async (req, res) => {
 
     let cartItems;
     try {
-      cartItems = await Cart.find({ userId }).populate("productId");
+      if (useClientCart) {
+        cartItems = clientItems.map((item) => ({
+          productId: item.productId,
+          quantity: Number(item.quantity) || 1,
+          color: item.color ?? null,
+          size: item.size ?? null,
+          sellerId: item.sellerId,
+        }));
+      } else {
+        cartItems = await Cart.find({ userId }).populate("productId");
+      }
 
       if (!cartItems.length) {
         return res.status(400).json({ status: "fail", message: "Cart is empty" });
@@ -605,7 +616,9 @@ const createOrder = async (req, res) => {
       });
     }
 
-    await Cart.deleteMany({ userId });
+    if (!useClientCart) {
+      await Cart.deleteMany({ userId });
+    }
 
     // Update wallet transaction with order ID if wallet payment was used
     if (normalizedPaymentMethod === "wallet" && walletDeduction > 0) {
