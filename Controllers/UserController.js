@@ -528,33 +528,57 @@ const changePassword = async (req, res) => {
 }
 
 
+const resolveFrontendUrl = (req) => {
+    const fromQuery = (req.query?.frontend_url || "").trim();
+    if (fromQuery && /^https?:\/\//i.test(fromQuery)) {
+        return fromQuery.replace(/\/$/, "");
+    }
+    return (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+};
+
+const parseOAuthState = (req) => {
+    try {
+        if (!req.query?.state) return null;
+        return JSON.parse(Buffer.from(req.query.state, "base64url").toString("utf8"));
+    } catch {
+        return null;
+    }
+};
+
 // Google OAuth Login Initiation
 const googleLogin = (req, res, next) => {
-    passport.authenticate('google', {
-        scope: ['profile', 'email']
+    const frontendUrl = resolveFrontendUrl(req);
+    const state = Buffer.from(JSON.stringify({ frontendUrl })).toString("base64url");
+
+    passport.authenticate("google", {
+        scope: ["profile", "email"],
+        state,
     })(req, res, next);
 };
 
 // Google OAuth Callback Handler
 // Google OAuth Callback Handler
 const googleCallback = (req, res, next) => {
-    passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login` }, async (err, user) => {
+    const oauthState = parseOAuthState(req);
+    const frontendUrl =
+        oauthState?.frontendUrl?.replace(/\/$/, "") ||
+        resolveFrontendUrl(req);
+
+    passport.authenticate("google", { failureRedirect: `${frontendUrl}/login?error=google_auth_failed` }, async (err, user) => {
         if (err) {
             console.error('Google OAuth error:', err);
-            return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=google_auth_failed`);
+            return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
         }
 
         if (!user) {
-            return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=user_not_found`);
+            return res.redirect(`${frontendUrl}/login?error=user_not_found`);
         }
 
         try {
-            // Generate JWT token for the authenticated user
             const token = jwt.sign({ id: user._id }, process.env.jwtkey, {
                 expiresIn: process.env.jwtexp
             });
 
-            // For API responses, return JSON with token
             if (req.headers.accept && req.headers.accept.includes('application/json')) {
                 return res.status(200).json({
                     status: "success",
@@ -565,24 +589,19 @@ const googleCallback = (req, res, next) => {
                 });
             }
 
-            // For web redirects, set token in cookie and redirect with token as URL param
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                maxAge: 24 * 60 * 60 * 1000 // 24 hours
-            });
-
-            // Redirect based on user role with token as URL parameter for frontend to store
-            const redirectUrl = '/auth/google/callback';
             const loginType = user.authProvider === 'google' ? 'google' : 'user';
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-            const fullRedirectUrl = `${frontendUrl}${redirectUrl}?token=${token}&loginType=${loginType}`;
+            const redirectTo = user.role === 'admin' ? '/admin' : '/';
+            const fullRedirectUrl =
+                `${frontendUrl}/auth/google/callback` +
+                `?token=${encodeURIComponent(token)}` +
+                `&loginType=${encodeURIComponent(loginType)}` +
+                `&redirectTo=${encodeURIComponent(redirectTo)}`;
 
             res.redirect(fullRedirectUrl);
 
         } catch (error) {
             console.error('Token generation error:', error);
-            return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=token_generation_failed`);
+            return res.redirect(`${frontendUrl}/login?error=token_generation_failed`);
         }
     })(req, res, next);
 };
@@ -592,7 +611,10 @@ const getGoogleAuthUrl = (req, res) => {
     try {
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${process.env.Google_Clientid}&` +
-            `redirect_uri=${encodeURIComponent('http://localhost:5000/user/auth/google/callback')}&` +
+            `redirect_uri=${encodeURIComponent(
+                process.env.GOOGLE_CALLBACK_URL ||
+                `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`}/user/auth/google/callback`
+            )}&` +
             `scope=${encodeURIComponent('openid profile email')}&` +
             `response_type=code&` +
             `access_type=offline&` +
