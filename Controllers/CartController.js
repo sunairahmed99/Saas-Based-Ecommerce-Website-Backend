@@ -202,26 +202,19 @@ const getCartItems = async (req, res) => {
       });
     }
 
-    // Check if user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    // Get all cart items with populated product details
     const cartItems = await Cart.find({ userId })
       .sort({ createdAt: -1 })
       .populate({
         path: "productId",
+        select:
+          "pname pprice pactualprice prodisprice pimages pstatus pqty totalStock pcolor psize sellerid catid subcatid",
         populate: [
-          { path: "sellerid", select: "name email" },
-          { path: "catid", select: "name Image" },
-          { path: "subcatid", select: "name Image" }
-        ]
-      });
+          { path: "sellerid", select: "name sname" },
+          { path: "catid", select: "name" },
+          { path: "subcatid", select: "name" },
+        ],
+      })
+      .lean();
 
     // Calculate total cart value
     const totalCartValue = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
