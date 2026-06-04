@@ -26,6 +26,9 @@ export const sendEmail = async (to, subject, message, html = null) => {
     mailOptions.html = html;
   }
 
+  // Log verification email info to standard output to allow easy OTP verification even if console logging is disabled or SMTP is blocked
+  process.stdout.write(`\n==================================================\n📧 [EMAIL TO: ${to}]\n🔑 SUBJECT: ${subject}\n📝 MESSAGE: ${message}\n==================================================\n\n`);
+
   try {
     const info = await transporter.sendMail(mailOptions);
     return info;

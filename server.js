@@ -1,5 +1,6 @@
 // server.js — UPDATED PRODUCTION READY
 
+import "./Utils/silenceConsole.js";
 import app from "./app.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -8,17 +9,7 @@ import dns from "dns";
 import { expireOldBoosts } from "./Controllers/ProductBoostController.js";
 import { processDelayedPointsAwards, processExpiredRefundWindows } from "./Controllers/WalletController.js";
 
-// Load environment variables first
 dotenv.config({ quiet: true });
-
-// Disable console logs in production
-if (process.env.NODE_ENV === 'production') {
-  console.log = () => {};
-  console.error = () => {};
-  console.debug = () => {};
-  console.warn = () => {};
-  console.info = () => {};
-}
 
 // ===================== DNS & Node Fix for SRV =====================
 // Force Node to use public DNS servers (Google + Cloudflare)

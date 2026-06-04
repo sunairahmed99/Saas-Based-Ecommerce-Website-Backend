@@ -6,7 +6,11 @@ import Seller from "../Models/SellerSchema.js";
 dotenv.config({ quiet: true });
 
 const extractToken = (req) => {
-  let token = req.header("auth_token");
+  let token =
+    req.header("auth_token") ||
+    req.header("admin_auth_token") ||
+    req.header("seller_auth_token");
+
   if (!token) {
     const authHeader = req.header("Authorization");
     if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -18,6 +22,8 @@ const extractToken = (req) => {
   }
   return token || null;
 };
+
+const normalizeRole = (role) => String(role || "user").toLowerCase().trim();
 
 const verifyuser = async (req, res, next) => {
   try {
@@ -37,7 +43,7 @@ const verifyuser = async (req, res, next) => {
 
     // Try to resolve the account either as a customer/admin or as a seller.
     let account = await User.findById(accountId).lean();
-    let role = (account?.role || "user").toLowerCase();
+    let role = normalizeRole(account?.role);
     let sellerId;
 
 
@@ -53,7 +59,7 @@ const verifyuser = async (req, res, next) => {
         });
       }
       account = seller;
-      role = (seller.role || "seller").toLowerCase();
+      role = normalizeRole(seller.role || "seller");
       sellerId = seller._id;
 
     }
@@ -66,7 +72,6 @@ const verifyuser = async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error("Auth error in verifyuser:", err?.message || err);
     // Most common case: invalid/expired token
     return res.status(401).json({
       status: "fail",
@@ -91,7 +96,7 @@ const verifyAdmin = async (req, res, next) => {
 
     // Try to resolve the account either as a customer/admin or as a seller.
     let account = await User.findById(accountId).lean();
-    let role = (account?.role || "user").toLowerCase();
+    let role = normalizeRole(account?.role);
     let sellerId;
 
     if (!account) {
@@ -103,7 +108,7 @@ const verifyAdmin = async (req, res, next) => {
         });
       }
       account = seller;
-      role = (seller.role || "seller").toLowerCase();
+      role = normalizeRole(seller.role || "seller");
       sellerId = seller._id;
     }
 
@@ -123,7 +128,6 @@ const verifyAdmin = async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error("Admin verification error:", err?.message || err);
     // Most common case: invalid/expired token
     return res.status(401).json({
       status: "fail",
@@ -134,15 +138,7 @@ const verifyAdmin = async (req, res, next) => {
 
 const verifySellerOrAdmin = async (req, res, next) => {
   try {
-    // First verify the user is authenticated
-    let token = req.header("auth_token");
-
-    if (!token) {
-      const authHeader = req.header("Authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7); // Remove "Bearer " prefix
-      }
-    }
+    const token = extractToken(req);
 
     if (!token) {
       return res.status(400).json({
@@ -156,7 +152,7 @@ const verifySellerOrAdmin = async (req, res, next) => {
 
     // Try to resolve the account either as a customer/admin or as a seller.
     let account = await User.findById(accountId).lean();
-    let role = (account?.role || "user").toLowerCase();
+    let role = normalizeRole(account?.role);
     let sellerId;
 
     if (!account) {
@@ -168,7 +164,7 @@ const verifySellerOrAdmin = async (req, res, next) => {
         });
       }
       account = seller;
-      role = (seller.role || "seller").toLowerCase();
+      role = normalizeRole(seller.role || "seller");
       sellerId = seller._id;
     }
 
@@ -224,7 +220,6 @@ const verifySellerOrAdmin = async (req, res, next) => {
     });
 
   } catch (err) {
-    console.error("Seller/Admin verification error:", err?.message || err);
     return res.status(401).json({
       status: "fail",
       message: "invalid or expired token, please login again"
@@ -234,15 +229,7 @@ const verifySellerOrAdmin = async (req, res, next) => {
 
 const verifySellerForOrder = async (req, res, next) => {
   try {
-    // First verify the user is authenticated
-    let token = req.header("auth_token");
-
-    if (!token) {
-      const authHeader = req.header("Authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7); // Remove "Bearer " prefix
-      }
-    }
+    const token = extractToken(req);
 
     if (!token) {
       return res.status(400).json({
@@ -256,7 +243,7 @@ const verifySellerForOrder = async (req, res, next) => {
 
     // Try to resolve the account either as a customer/admin or as a seller.
     let account = await User.findById(accountId).lean();
-    let role = (account?.role || "user").toLowerCase();
+    let role = normalizeRole(account?.role);
     let sellerId;
 
     if (!account) {
@@ -268,7 +255,7 @@ const verifySellerForOrder = async (req, res, next) => {
         });
       }
       account = seller;
-      role = (seller.role || "seller").toLowerCase();
+      role = normalizeRole(seller.role || "seller");
       sellerId = seller._id;
     }
 
@@ -341,7 +328,6 @@ const verifySellerForOrder = async (req, res, next) => {
     });
 
   } catch (err) {
-    console.error("Seller order verification error:", err?.message || err);
     return res.status(401).json({
       status: "fail",
       message: "invalid or expired token, please login again"
@@ -351,15 +337,7 @@ const verifySellerForOrder = async (req, res, next) => {
 
 const verifyAdminOrSeller = async (req, res, next) => {
   try {
-    // First verify the user is authenticated
-    let token = req.header("auth_token");
-
-    if (!token) {
-      const authHeader = req.header("Authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7); // Remove "Bearer " prefix
-      }
-    }
+    const token = extractToken(req);
 
     if (!token) {
       return res.status(400).json({
@@ -373,7 +351,7 @@ const verifyAdminOrSeller = async (req, res, next) => {
 
     // Try to resolve the account either as a customer/admin or as a seller.
     let account = await User.findById(accountId).lean();
-    let role = (account?.role || "user").toLowerCase();
+    let role = normalizeRole(account?.role);
     let sellerId;
 
     if (!account) {
@@ -385,7 +363,7 @@ const verifyAdminOrSeller = async (req, res, next) => {
         });
       }
       account = seller;
-      role = (seller.role || "seller").toLowerCase();
+      role = normalizeRole(seller.role || "seller");
       sellerId = seller._id;
     }
 
@@ -406,7 +384,6 @@ const verifyAdminOrSeller = async (req, res, next) => {
     });
 
   } catch (err) {
-    console.error("Admin/Seller verification error:", err?.message || err);
     return res.status(401).json({
       status: "fail",
       message: "invalid or expired token, please login again"
@@ -417,15 +394,7 @@ const verifyAdminOrSeller = async (req, res, next) => {
 // Optional authentication middleware - doesn't fail if no token, just sets req properties if authenticated
 const optionalAuth = async (req, res, next) => {
   try {
-    // Check for token in either auth_token header or Authorization header
-    let token = req.header("auth_token");
-
-    if (!token) {
-      const authHeader = req.header("Authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7); // Remove "Bearer " prefix
-      }
-    }
+    const token = extractToken(req);
 
     // If no token, just continue without setting auth properties
     if (!token) {
@@ -437,7 +406,7 @@ const optionalAuth = async (req, res, next) => {
 
     // Try to resolve the account either as a customer/admin or as a seller.
     let account = await User.findById(accountId).lean();
-    let role = (account?.role || "user").toLowerCase();
+    let role = normalizeRole(account?.role);
     let sellerId;
 
     if (!account) {
@@ -447,7 +416,7 @@ const optionalAuth = async (req, res, next) => {
         return next();
       }
       account = seller;
-      role = (seller.role || "seller").toLowerCase();
+      role = normalizeRole(seller.role || "seller");
       sellerId = seller._id;
     }
 

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { uploadImageToCloudinary } from "../Middleware/Uploadmiddleware.js";
 import passport from '../Utils/passport.js';
+import { getGoogleCallbackUrl } from '../Utils/googleOAuth.js';
 
 dotenv.config({ quiet: true })
 
@@ -611,10 +612,7 @@ const getGoogleAuthUrl = (req, res) => {
     try {
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${process.env.Google_Clientid}&` +
-            `redirect_uri=${encodeURIComponent(
-                process.env.GOOGLE_CALLBACK_URL ||
-                `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`}/user/auth/google/callback`
-            )}&` +
+            `redirect_uri=${encodeURIComponent(getGoogleCallbackUrl())}&` +
             `scope=${encodeURIComponent('openid profile email')}&` +
             `response_type=code&` +
             `access_type=offline&` +

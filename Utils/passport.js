@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../Models/UserSchema.js';
 import dotenv from 'dotenv';
+import { getGoogleCallbackUrl } from './googleOAuth.js';
 
 dotenv.config({ quiet: true });
 
@@ -26,9 +27,7 @@ passport.use(
         {
             clientID: process.env.Google_Clientid,
             clientSecret: process.env.Gogle_ClientSecret,
-            callbackURL:
-                process.env.GOOGLE_CALLBACK_URL ||
-                `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`}/user/auth/google/callback`,
+            callbackURL: getGoogleCallbackUrl(),
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
