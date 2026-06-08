@@ -7,6 +7,10 @@ import InventoryAlert from "../Models/InventoryAlertSchema.js";
 import RecentlyViewedProduct from "../Models/RecentlyViewedProduct.js";
 import { updateAllProductRatings, fixNegativeStock } from "../Utils/ProductRatingService.js";
 import Category from "../Models/CategorySchema.js";
+import {
+  applyProductListQuery,
+  applyProductDetailQuery,
+} from "../Utils/productQueryHelpers.js";
 
 const createProduct = async (req, res) => {
   try {
@@ -551,15 +555,9 @@ const deleteProduct = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-  
-
-   const products = await Product.find()
-  .select("-pimage2 -pimage3")
-  .sort({ views: -1, createdAt: -1 })
-  .populate("sellerid", "name email")
-  .populate("catid", "name Image")
-  .populate("subcatid", "name Image")
-  .lean();
+   const products = await applyProductListQuery(
+     Product.find().sort({ views: -1, createdAt: -1 })
+   );
 
     res.status(200).json({
       success: true,
@@ -584,12 +582,9 @@ const getSellerProducts = async (req, res) => {
   
     const sellerid = req.get('seller_id');
 
-    const products = await Product.find({sellerid:sellerid})
-  .sort({ createdAt: -1 })
-  .populate("sellerid", "name")
-  .populate("catid", "name Image")
-  .populate("subcatid", "name Image")
-  .lean();
+    const products = await applyProductListQuery(
+      Product.find({ sellerid }).sort({ createdAt: -1 })
+    );
 
 
     res.status(200).json({
@@ -616,11 +611,7 @@ const getProductAndIncrementViews = async (req, res) => {
     // Background tasks will check for incrementing views and history asynchronously
 
     // 1. Fetch product IMMEDIATELY
-    const product = await Product.findById(id)
-      .populate("sellerid", "name")
-      .populate("catid", "name Image")
-      .populate("subcatid", "name Image")
-      .lean();
+    const product = await applyProductDetailQuery(Product.findById(id));
 
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found." });
@@ -632,9 +623,13 @@ const getProductAndIncrementViews = async (req, res) => {
     (async () => {
       try {
         const rawUserId =
-          (req.body && req.body.userId) || (req.headers && req.headers["user_id"]);
+          req.query?.user_id ||
+          (req.body && req.body.userId) ||
+          (req.headers && req.headers["user_id"]);
         const deviceId =
-          (req.body && req.body.deviceId) || (req.headers && req.headers["device_id"]);
+          req.query?.device_id ||
+          (req.body && req.body.deviceId) ||
+          (req.headers && req.headers["device_id"]);
 
         let shouldIncrement = true;
         if (rawUserId && typeof rawUserId === "string" && rawUserId.length === 24) {
@@ -669,12 +664,9 @@ const getProductAndIncrementViews = async (req, res) => {
 // Get top 10 trending products (highest views)
 const getTrendingProducts = async (req, res) => {
   try {
-    const products = await Product.find({ pstatus: "active" })
-      .sort({ views: -1 })
-      .limit(10)
-      .populate("sellerid", "name")
-      .populate("catid", "name Image")
-      .populate("subcatid", "name Image");
+    const products = await applyProductListQuery(
+      Product.find({ pstatus: "active" }).sort({ views: -1 }).limit(10)
+    );
     return res.status(200).json({ success: true, data: products });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
@@ -775,15 +767,12 @@ const getProductsByCategory = async (req, res) => {
       });
     }
 
-    const products = await Product.find({
-      catid: new mongoose.Types.ObjectId(categoryId),
-      pstatus: "active",
-    })
-    .sort({ createdAt: -1 })
-    .populate("sellerid", "name email")
-    .populate("catid", "name Image")
-    .populate("subcatid", "name Image")
-    .lean();
+    const products = await applyProductListQuery(
+      Product.find({
+        catid: new mongoose.Types.ObjectId(categoryId),
+        pstatus: "active",
+      }).sort({ views: -1, createdAt: -1 })
+    );
 
     res.status(200).json({
       success: true,
@@ -814,15 +803,12 @@ const getProductsBySubcategory = async (req, res) => {
       });
     }
 
-    const products = await Product.find({
-      subcatid: new mongoose.Types.ObjectId(subcategoryId),
-      pstatus: "active",
-    })
-    .sort({ createdAt: -1 })
-    .populate("sellerid", "name email")
-    .populate("catid", "name Image")
-    .populate("subcatid", "name Image")
-    .lean();
+    const products = await applyProductListQuery(
+      Product.find({
+        subcatid: new mongoose.Types.ObjectId(subcategoryId),
+        pstatus: "active",
+      }).sort({ views: -1, createdAt: -1 })
+    );
 
     res.status(200).json({
       success: true,
@@ -846,15 +832,9 @@ const getProductsBySeller = async (req, res) => {
   try {
     const { sellerId } = req.params;
 
-    const products = await Product.find({
-      sellerid: sellerId,
-      pstatus: "active"
-    })
-    .sort({ createdAt: -1 })
-    .populate("sellerid", "name email shopName")
-    .populate("catid", "name Image")
-    .populate("subcatid", "name Image")
-    .lean();
+    const products = await applyProductListQuery(
+      Product.find({ sellerid: sellerId, pstatus: "active" }).sort({ createdAt: -1 })
+    );
 
     res.status(200).json({
       success: true,
@@ -889,6 +869,7 @@ const searchProducts = async (req, res) => {
     const terms = query.trim().split(/\s+/).filter(Boolean);
 
     const orConditions = [];
+    const categoryRegexes = [];
     for (const term of terms) {
       const termRegex = new RegExp(escapeRegex(term), "i");
       orConditions.push(
@@ -896,22 +877,23 @@ const searchProducts = async (req, res) => {
         { pdescription: termRegex },
         { sku: termRegex }
       );
-      const matchingCategories = await Category.find({ name: termRegex }).select("_id");
+      categoryRegexes.push({ name: termRegex });
+    }
+
+    if (categoryRegexes.length > 0) {
+      const matchingCategories = await Category.find({ $or: categoryRegexes }).select("_id").lean();
       const categoryIds = matchingCategories.map((cat) => cat._id);
       if (categoryIds.length > 0) {
         orConditions.push({ catid: { $in: categoryIds } });
       }
     }
 
-    const products = await Product.find({
-      pstatus: "active",
-      ...(orConditions.length > 0 ? { $or: orConditions } : {}),
-    })
-    .sort({ views: -1, createdAt: -1 })
-    .populate("sellerid", "name email shopName")
-    .populate("catid", "name Image")
-    .populate("subcatid", "name Image")
-    .lean();
+    const products = await applyProductListQuery(
+      Product.find({
+        pstatus: "active",
+        ...(orConditions.length > 0 ? { $or: orConditions } : {}),
+      }).sort({ views: -1, createdAt: -1 }).limit(60)
+    );
 
     res.status(200).json({
       success: true,
@@ -1066,12 +1048,11 @@ const toggleFeaturedStatus = async (req, res) => {
 
 const getFeaturedProducts = async (req, res) => {
   try {
-    const products = await Product.find({ isFeatured: true, pstatus: "active" })
-      .sort({ createdAt: -1 })
-      .limit(30) // Limit to 30 featured products
-      .populate("sellerid", "name")
-      .populate("catid", "name Image")
-      .populate("subcatid", "name Image");
+    const products = await applyProductListQuery(
+      Product.find({ isFeatured: true, pstatus: "active" })
+        .sort({ createdAt: -1 })
+        .limit(30)
+    );
 
     res.status(200).json({ success: true, data: products });
   } catch (error) {
@@ -1081,12 +1062,9 @@ const getFeaturedProducts = async (req, res) => {
 
 const getLatestProducts = async (req, res) => {
   try {
-    const products = await Product.find({ pstatus: "active" })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .populate("sellerid", "name")
-      .populate("catid", "name Image")
-      .populate("subcatid", "name Image");
+    const products = await applyProductListQuery(
+      Product.find({ pstatus: "active" }).sort({ createdAt: -1 }).limit(10)
+    );
     res.status(200).json({ success: true, data: products });
   } catch (error) {
     res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
@@ -1096,15 +1074,13 @@ const getLatestProducts = async (req, res) => {
 const getRelatedProducts = async (req, res) => {
   try {
     const { productId, catId } = req.query;
-    const products = await Product.find({ 
-      catid: catId, 
-      _id: { $ne: productId },
-      pstatus: "active" 
-    })
-      .limit(4)
-      .populate("sellerid", "name")
-      .populate("catid", "name Image")
-      .populate("subcatid", "name Image");
+    const products = await applyProductListQuery(
+      Product.find({
+        catid: catId,
+        _id: { $ne: productId },
+        pstatus: "active",
+      }).limit(4)
+    );
     res.status(200).json({ success: true, data: products });
   } catch (error) {
     res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });

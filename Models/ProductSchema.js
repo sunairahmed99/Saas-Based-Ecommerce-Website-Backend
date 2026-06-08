@@ -168,6 +168,9 @@ productSchema.index({ catid: 1 });
 productSchema.index({ subcatid: 1 });
 productSchema.index({ isFeatured: 1 });
 productSchema.index({ createdAt: -1 });
+productSchema.index({ catid: 1, pstatus: 1, views: -1 });
+productSchema.index({ subcatid: 1, pstatus: 1, views: -1 });
+productSchema.index({ pstatus: 1, views: -1, createdAt: -1 });
 
 
 
