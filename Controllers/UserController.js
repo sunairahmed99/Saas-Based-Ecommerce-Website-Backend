@@ -553,6 +553,7 @@ const googleLogin = (req, res, next) => {
 
     passport.authenticate("google", {
         scope: ["profile", "email"],
+        prompt: "select_account",
         state,
     })(req, res, next);
 };
@@ -615,8 +616,7 @@ const getGoogleAuthUrl = (req, res) => {
             `redirect_uri=${encodeURIComponent(getGoogleCallbackUrl())}&` +
             `scope=${encodeURIComponent('openid profile email')}&` +
             `response_type=code&` +
-            `access_type=offline&` +
-            `prompt=consent`;
+            `prompt=select_account`;
 
         res.status(200).json({
             status: "success",
