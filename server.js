@@ -38,7 +38,7 @@ const connectDB = async (retries = 5) => {
     // ===================== Start Server =====================
     const port = process.env.PORT || 5000;
     const { createServer } = await import("http");
-    const { initSocket } = await import("./Utils/sockets.js");
+    const { initSocket } = await import("./socket.js");
     
     const httpServer = createServer(app);
     initSocket(httpServer);
